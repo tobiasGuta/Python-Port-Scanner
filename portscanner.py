@@ -74,7 +74,7 @@ def tcp_probe(ip, port, timeout):
             sock.settimeout(timeout)
             result = sock.connect_ex((ip, port))
             if result == 0:
-                # Connected. attempt to grab banner.
+                # Connected. Now attempt to grab banner.
                 banner = grab_banner(sock)
                 return ("tcp", port, banner)
     except:
@@ -177,7 +177,7 @@ def main():
                     proto, port, banner = result
                     open_results.append((proto, port, banner))
                     
-                    # Print real-time hit
+                    # Optional: Print real-time hit
                     msg = f"[bold green][+] {proto.upper()} Port {port} OPEN[/bold green]"
                     if banner and banner != "No Banner" and banner != "Open|Filtered":
                         msg += f" [dim]({banner[:30]}...)[/dim]"
