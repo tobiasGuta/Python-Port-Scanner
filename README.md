@@ -138,5 +138,4 @@ Then one of three things happens:
 | Firewalled | Nothing | Could be filtered |
 
 <img width="1919" height="542" alt="image" src="https://github.com/user-attachments/assets/4168763e-75b8-4b7b-b916-e3e8f33419c9" />
-<img width="1919" height="542" alt="image" src="https://github.com/user-attachments/assets/4168763e-75b8-4b7b-b916-e3e8f33419c9" />
 
