@@ -55,6 +55,18 @@ def parse_ports(port_arg):
 
     return sorted(ports)
 
+# Banner Grabbing Helper
+def grab_banner(sock):
+    try:
+        # We try to read a small amount of data
+        # Some services emit data immediately (SSH, FTP, SMTP)
+        # Others wait for input (HTTP), so this might timeout for those.
+        sock.settimeout(1.0) 
+        banner = sock.recv(1024).decode(errors='ignore').strip()
+        return banner if banner else "No Banner"
+    except:
+        return "No Banner"
+
 # TCP Scan
 def tcp_probe(ip, port, timeout):
     try:
@@ -62,7 +74,9 @@ def tcp_probe(ip, port, timeout):
             sock.settimeout(timeout)
             result = sock.connect_ex((ip, port))
             if result == 0:
-                return ("tcp", port)
+                # Connected. attempt to grab banner.
+                banner = grab_banner(sock)
+                return ("tcp", port, banner)
     except:
         pass
     return None
@@ -75,11 +89,13 @@ def udp_probe(ip, port, timeout):
             sock.sendto(b"", (ip, port))
 
             try:
-                sock.recvfrom(1024)
-                return ("udp", port)  # Got response = likely open
+                data, _ = sock.recvfrom(1024)
+                # UDP usually doesn't give a clean text banner like TCP, 
+                # but if we got data, we can try to show it or just mark Open.
+                return ("udp", port, "Open/Response Rx") 
             except socket.timeout:
                 # No response = open|filtered
-                return ("udp", port)
+                return ("udp", port, "Open|Filtered")
     except:
         pass
     return None
@@ -93,7 +109,7 @@ def main():
     parser.add_argument("target")
     parser.add_argument("-p", "--ports")
     parser.add_argument("-T", type=int, choices=range(1, 6), default=3)
-    parser.add_argument("-sT", action="store_true", help="TCP scan")
+    parser.add_argument("-sT", action="store_true", help="TCP scan (Grabs Banner)")
     parser.add_argument("-sU", action="store_true", help="UDP scan")
     parser.add_argument("--workers", type=int)
 
@@ -158,11 +174,14 @@ def main():
                 progress.update(task, advance=1)
 
                 if result:
-                    proto, port = result
-                    open_results.append((proto, port))
-                    progress.console.print(
-                        f"[bold green][+] {proto.upper()} Port {port} OPEN[/bold green]"
-                    )
+                    proto, port, banner = result
+                    open_results.append((proto, port, banner))
+                    
+                    # Print real-time hit
+                    msg = f"[bold green][+] {proto.upper()} Port {port} OPEN[/bold green]"
+                    if banner and banner != "No Banner" and banner != "Open|Filtered":
+                        msg += f" [dim]({banner[:30]}...)[/dim]"
+                    progress.console.print(msg)
 
     # Results
     console.rule("[bold red]Final Results")
@@ -171,9 +190,12 @@ def main():
         table = Table(box=box.DOUBLE_EDGE)
         table.add_column("Protocol", style="cyan")
         table.add_column("Port", style="bold green")
+        table.add_column("Service/Banner", style="white")
 
-        for proto, port in sorted(open_results):
-            table.add_row(proto.upper(), str(port))
+        for proto, port, banner in sorted(open_results):
+            # Clean up banner for display (remove newlines, truncate)
+            clean_banner = str(banner).replace('\n', ' ')[:50]
+            table.add_row(proto.upper(), str(port), clean_banner)
 
         console.print(table)
     else:
